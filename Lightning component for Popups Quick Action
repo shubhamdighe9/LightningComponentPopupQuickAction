@@ -1,0 +1,241 @@
+<aura:component implements= "force:appHostable,lightning:isUrlAddressable,flexipage:availableForRecordHome,force:lightningQuickActionWithoutHeader,force:hasRecordId" access="global" 
+                controller="MAF_SelectUnitController">
+    
+    <!--	Aura Attributes	-->
+    <aura:attribute name="picklistValues" type="MAF_SelectUnitController.PicklistValues"/>
+    <aura:attribute name="projectList" type="List"/>
+    <aura:attribute name="phaseList" type="List"/>
+    
+    <aura:attribute name="searchResults" type="Unit__c[]"/>
+    <aura:attribute name="columns" type="List"/>
+    <aura:attribute name="selectedRowsInTable" type="List"/>
+    <aura:attribute name="selectedRowsOnPage" type="List"/>
+    <aura:attribute name="selectedIds" type="List"/>
+    <aura:attribute name="selectedUnitList" type="List"/>
+    <aura:attribute name="selectedProject" type="String"/>
+    <aura:attribute name="selectedPhase" type="String"/>
+    <aura:attribute name="selectedUnitType" type="String"/>
+    <aura:attribute name="selectedView" type="String"/>
+    <aura:attribute name="selectedPropertyType" type="String"/>
+    <aura:attribute name="selectedUnitNumber" type="String"/>
+    <aura:attribute name="selectedBedrooms" type="String"/>
+    <aura:attribute name="minPriceRange" type="Integer" default="0" />
+    <aura:attribute name="maxPriceRange" type="Integer" default="0"/>
+    <aura:attribute name="noResults" type="boolean" default="false" />
+    
+    <aura:attribute name="opportunityId" type="String"/>
+    <aura:attribute name="showSpinner" type="boolean" default="false"/>	
+    <aura:attribute name="hasUnit" type="boolean" default="false"/>	
+    <aura:attribute name="hasReceipt" type="boolean" default="false"/>	
+    <aura:attribute name="isBulk" type="boolean" default="false"/>	
+    
+    <aura:attribute name="maxRowSelection" type="Integer" />
+    <aura:attribute name="selectedRowsCount" type="Integer" default="0"/>
+    
+    <aura:attribute name="displaySearchResults" type="boolean" default="false"/>	
+    
+    <aura:attribute name="start" type="Integer" />
+    <aura:attribute name="end" type="Integer" />
+    
+    <aura:attribute name="sortedBy" type="String" default="Name"/>
+    <aura:attribute name="sortedDirection" type="String" default="asc" />
+    <aura:attribute name="currentPageNumber" type="Integer" default="1"/>
+    <aura:attribute name="selectedPageSize" type="String" default="10"/>
+    <aura:attribute name="totalPages" type="String" />
+    <aura:attribute name="pageList" type="List"/>
+    
+    
+    <!--	New Data Table	-->
+    
+    
+    <aura:attribute name="pageNumber" type="Integer" default="1"/>
+    <aura:attribute name="isLastPage" type="Boolean" default="false"/>
+    <aura:attribute name="resultSize" type="Integer" default="0"/> 
+    <aura:attribute name="selection" type="List" />
+    <aura:attribute name="hasPageChanged" type="Boolean" />
+    <aura:attribute name="initialLoad" type="Boolean" default="true"/>
+    <aura:attribute name="updatedRecord" type="Object[]" />
+    
+    
+    <aura:handler event="force:refreshView" action="{!c.doInit}" />
+    
+    <aura:attribute name="selectedPhaseRecord" type="sObject" default="{}"/>
+    <aura:attribute name="selectedUnitRecord" type="sObject" default="{}"/>
+    <!--	price range attribute min max range		-->
+    <aura:attribute name="minPrice" type="integer" default="250000"/>
+    <aura:attribute name="maxPrice" type="integer" default="8000000"/>
+    <aura:attribute name="recordId" type="String"/>
+    
+    <aura:handler event="c:RangeChange" action="{!c.onRangeChange}"/>
+    <aura:handler name="change" value="{!v.selectedPhaseRecord}" action="{!c.handlePhaseChange}"/>
+    <aura:handler name="change" value="{!v.selectedUnitRecord}" action="{!c.handleUnitChange}"/>
+    <aura:handler name="change" value="{!v.selectedPropertyType}" action="{!c.handleChange}"/>
+    <aura:handler name="change" value="{!v.selectedView}" action="{!c.handleChange}"/>
+    <aura:handler name="change" value="{!v.selectedBedrooms}" action="{!c.handleChange}"/>
+    <!--	Event Handlers		-->
+    <aura:handler name="init" value="{!this}" action="{!c.doInit}"/>
+    
+    <aura:html tag="style">
+        <!-- Popup css start-->
+        .slds-modal__container {
+        width: 96%!important;
+        max-width: 96%!important;
+        margin:auto;
+        padding:0px !important;
+        }
+        .slds-text-heading_medium, .slds-text-heading--medium{
+        font-weight: bold;
+        }
+        .modal-body{
+        height : 600px !important;
+        max-height: 600px !important;
+        }
+        .cuf-content{
+        padding:0px!important;
+        }
+        .cMAF_SelectUnitPage{
+        padding-top:10px;
+        padding-bottom: 10px;
+        }
+        .slds-modal__header{
+        background: #f3f2f2;
+        border-bottom: 1px solid #dddbda;
+        }
+        .slds-modal__footer{
+        border-top: 1px solid #dddbda;
+        }
+        <!-- Popup css End-->
+        <!-- Grid view css start -->
+       
+       
+        .slds-grid .slds-p-around_small{
+        padding-top:0px!important;
+        }
+        .slds-form-element__label:empty {
+        margin: 0;
+        display: none;
+        }
+        .slds-form-element__label{
+        display:block;
+        }
+        .slds-badge_lightest{
+        padding: 5px 15px;
+        }
+        .slds-modal__close{
+        background: #1b5297;
+        right: -10px;
+        top: -14px;
+        border-radius: 50%;
+        }
+        <!-- Grid view css End -->
+    </aura:html>
+    <div class="slds-modal__container containerCustomClass">
+        <article class="slds-card" style="background: transparent;border: none;box-shadow: none;">
+            <aura:if isTrue="{!v.showSpinner}">
+                <div class="exampleHolder">
+                    <lightning:spinner alternativeText="Loading" size="large" />
+                </div>
+            </aura:if>
+            <div class="mainDivClass">
+                <aura:if isTrue="{!v.hasUnit}">
+                    <div class="slds-text-color_destructive slds-text-heading_medium slds-text-align_center "><b>This Opportunity already has associated unit.</b></div>
+                </aura:if>
+                <br/>
+                <div class="slds-section slds-is-open "
+                     aura:id="collapsibleSectionContainer" >
+                    <h3 class="slds-section__title  " >
+                        <lightning:buttonStateful aura:id="collapsibleBttn" labelWhenOff="Filters"
+                                                  labelWhenOn="Filters"
+                                                  iconNameWhenOff="utility:chevrondown"
+                                                  iconNameWhenOn="utility:chevronright"
+                                                  onclick="{! c.handleSectionHeaderClick }"
+                                                  class="slds-section__title-action slds-button__icon_left" />
+                        
+                    </h3>
+                    <div class="slds-section__content" >
+                        <div id="filters" style="padding: 5px;}">
+                            <div class="slds-grid slds-wrap">
+                                <div class="slds-col slds-size_3-of-12 columnwidth">
+                                    
+                                    <c:MAF_SearchUnitCustomLookup objectAPIName="Phase__c" IconName="custom:custom37" selectedRecord="{!v.selectedPhaseRecord}" label="Phase"/>  
+                                </div>
+                                
+                                <div class="slds-col slds-size_3-of-12 columnwidth">
+                                    <lightning:select name="Property Type" label="Property Type" value="{!v.selectedPropertyType}">
+                                        <option value=""></option>
+                                        <aura:iteration items="{!v.picklistValues.propertyTypes}" var="propertyType"  >
+                                            <option value="{!propertyType}">{!propertyType}</option>
+                                        </aura:iteration>
+                                    </lightning:select>       
+                                </div>
+                                <div class="slds-col slds-size_3-of-12 columnwidth">
+                                    <lightning:select name="Views" label="Views" value="{!v.selectedView}" >
+                                        <option value=""></option>
+                                        <aura:iteration items="{!v.picklistValues.views}" var="view"  >
+                                            <option value="{!view}">{!view}</option>
+                                        </aura:iteration>
+                                    </lightning:select>       
+                                </div>
+                                <div class="slds-col slds-size_3-of-12 columnwidth">
+                                    <lightning:select name="Bedrooms" label="Bedrooms" value="{!v.selectedBedrooms}" >
+                                        <option value=""></option>
+                                        <aura:iteration items="{!v.picklistValues.bedRooms}" var="bedroom"  >
+                                            <option value="{!bedroom}">{!bedroom}</option>
+                                        </aura:iteration>
+                                    </lightning:select>       
+                                </div>
+                                <div class="slds-col slds-size_3-of-12 columnwidth">
+                                    <c:MAF_SearchUnitCustomLookup dependentObjectId="{!v.selectedPhaseRecord}" objectAPIName="Unit__c" IconName="custom:custom13" selectedRecord="{!v.selectedUnitRecord}" label="Unit"/>
+                                </div>
+                                
+                                <div class="rangeCmp slds-col slds-size_3-of-12 columnwidthPriceBar">
+                                    <c:MAF_PriceRange/>                            
+                                </div>
+                                <div class="slds-col slds-size_3-of-12 slds-align_absolute-center" style="padding-top: 35px;">
+                                    <!--     <lightning:button class="searchWidth" variant="success" label="Search" title="Search" onclick="{! c.handleSearchProperties }"  disabled = "{!v.hasReceipt}"/>&nbsp;
+                           --> <lightning:button variant="brand" label="Reset" title="Reset" onclick="{! c.handleResetProperties }" />
+                                </div> 
+                                <!--    <div class="slds-col slds-size_3-of-12 slds-align_absolute-center" style="padding-top: 35px;">
+                                    <lightning:button variant="brand" label="Reset" title="Reset" onclick="{! c.handleResetProperties }" />&nbsp;
+                                </div>-->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <aura:if isTrue="{!v.displaySearchResults}">
+                    
+                    <div class="tableClass">
+                        <lightning:layout multipleRows="true">
+                            <lightning:layoutItem  padding="around-small" size="4" >
+                                <div style="text-align: left">
+                                    <lightning:button variant="brand" label="Add Selected Units" title="Add Selected Units" onclick="{! c.addSelectedUnits }" />
+                                </div>
+                            </lightning:layoutItem>
+                        </lightning:layout>
+                        <lightning:datatable
+                                             columns="{! v.columns }"
+                                             data="{! v.searchResults }"
+                                             keyField="Id"
+                                             maxRowSelection="{! v.maxRowSelection }"
+                                             hideCheckboxColumn="false"
+                                             selectedRows = "{!v.selection}"
+                                             onrowaction="{! c.handleRowAction }"
+                                             sortedBy="{!v.sortedBy}"
+                                             sortedDirection="{!v.sortedDirection}"
+                                             onsort="{!c.updateColumnSorting}"
+                                             onrowselection ="{!c.onRowSelection}"/> 
+                    </div>
+                    <aura:set attribute="else">
+                        <div style="text-align: center">
+                            <br/>
+                            No record to show.
+                            <br/>
+                        </div>
+                    </aura:set>
+                </aura:if> 
+                
+            </div>
+        </article>
+    </div>
+</aura:component>
